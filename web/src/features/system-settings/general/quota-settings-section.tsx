@@ -33,6 +33,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { formatQuota } from '@/lib/format'
 
@@ -55,6 +62,9 @@ const quotaSchema = z.object({
   PreConsumedQuota: z.coerce.number().min(0),
   QuotaForInviter: z.coerce.number().min(0),
   QuotaForInvitee: z.coerce.number().min(0),
+  TopupRebateInviterPercent: z.coerce.number().min(0).max(1),
+  TopupRebateInviteePercent: z.coerce.number().min(0).max(1),
+  TopupRebateTarget: z.enum(['aff_quota', 'quota']),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -231,6 +241,92 @@ export function QuotaSettingsSection({
                     {t('Quota given to invited users ({{formattedQuota}})', {
                       formattedQuota: formatQuotaInputValue(field.value),
                     })}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='TopupRebateInviterPercent'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Inviter Rebate %')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      step='0.01'
+                      min='0'
+                      max='1'
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Percentage of invitee topup/subscription credited to inviter (e.g. 0.1 = 10%)')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='TopupRebateInviteePercent'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Invitee Self-Rebate %')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      step='0.01'
+                      min='0'
+                      max='1'
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Percentage of own topup/subscription credited back to invitee (e.g. 0.05 = 5%)')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='TopupRebateTarget'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Rebate Target')}</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='aff_quota'>
+                        {t('Affiliate Quota (manual transfer)')}
+                      </SelectItem>
+                      <SelectItem value='quota'>
+                        {t('Main Balance (instant)')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {t('Where rebate is credited: aff_quota requires manual transfer, quota is instantly usable')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
