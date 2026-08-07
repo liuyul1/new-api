@@ -41,6 +41,7 @@ func createRebateUser(t *testing.T, db *gorm.DB, username string, inviterID int)
 	t.Helper()
 	u := User{
 		Username:  username,
+		AffCode:   common.GetRandomString(4),
 		InviterId: inviterID,
 		Role:      common.RoleCommonUser,
 		Status:    common.UserStatusEnabled,
