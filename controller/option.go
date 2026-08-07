@@ -363,6 +363,18 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	}
+	switch option.Key {
+	case "TopupRebateInviterPercent", "TopupRebateInviteePercent":
+		if v, err := strconv.ParseFloat(option.Value.(string), 64); err != nil || v < 0 || v > 1 {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "返现比例必须在 0 到 1 之间"})
+			return
+		}
+	case "TopupRebateTarget":
+		if option.Value.(string) != "aff_quota" && option.Value.(string) != "quota" {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "返现目标必须是 aff_quota 或 quota"})
+			return
+		}
+	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
 		common.ApiError(c, err)

@@ -398,6 +398,8 @@ func EpayNotify(c *gin.Context) {
 			}
 			// 在同一事务内完成 状态翻转 + 到账额度 + 返现：三者原子提交或回滚（P1-1），
 			// 并通过 SELECT ... FOR UPDATE + Pending 守卫消除并发/重复回调导致的重复到账与重复返现。
+			var completed bool
+			var rebateLogs []model.RebateLog
 			err := model.DB.Transaction(func(tx *gorm.DB) error {
 				if !common.UsingMainDatabase(common.DatabaseTypeSQLite) {
 					tx = tx.Clauses(clause.Locking{Strength: "UPDATE"})
@@ -409,6 +411,7 @@ func EpayNotify(c *gin.Context) {
 				if guarded.Status != common.TopUpStatusPending {
 					return nil // 幂等：已被并发/重复回调处理
 				}
+				completed = true
 				guarded.PaymentMethod = topUp.PaymentMethod
 				guarded.Status = common.TopUpStatusSuccess
 				guarded.CompleteTime = common.GetTimestamp()
@@ -419,14 +422,19 @@ func EpayNotify(c *gin.Context) {
 					Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
 					return err
 				}
-				return model.CreditRebate(tx, guarded.UserId, int64(quotaToAdd), "充值", guarded.TradeNo)
+				var rerr error
+				rebateLogs, rerr = model.CreditRebate(tx, guarded.UserId, int64(quotaToAdd), "充值", guarded.TradeNo)
+				return rerr
 			})
 			if err != nil {
 				logger.LogError(c.Request.Context(), fmt.Sprintf("易支付 更新充值订单失败（事务已回滚）trade_no=%s user_id=%d client_ip=%s quota_to_add=%d error=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, err.Error()))
 				return
 			}
-			logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 充值成功 trade_no=%s user_id=%d client_ip=%s quota_to_add=%d money=%.2f topup=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, topUp.Money, common.GetJsonString(topUp)))
-			model.RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), c.ClientIP(), topUp.PaymentMethod, "epay")
+			if completed {
+				logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 充值成功 trade_no=%s user_id=%d client_ip=%s quota_to_add=%d money=%.2f topup=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, topUp.Money, common.GetJsonString(topUp)))
+				model.RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), c.ClientIP(), topUp.PaymentMethod, "epay")
+				model.RecordRebateLogs(rebateLogs)
+			}
 		}
 	} else {
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 webhook 忽略事件 trade_no=%s callback_type=%s trade_status=%s client_ip=%s verify_info=%q", verifyInfo.ServiceTradeNo, verifyInfo.Type, verifyInfo.TradeStatus, c.ClientIP(), common.GetJsonString(verifyInfo)))

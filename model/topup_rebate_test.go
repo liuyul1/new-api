@@ -63,7 +63,8 @@ func TestCreditRebateNoInviterNoCredit(t *testing.T) {
 	uid := createRebateUser(t, db, "no-inviter", 0)
 
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return CreditRebate(tx, uid, 1_000_000, "充值", "tn-no-inviter")
+		_, err := CreditRebate(tx, uid, 1_000_000, "充值", "tn-no-inviter")
+		return err
 	}))
 
 	var u User
@@ -80,7 +81,8 @@ func TestCreditRebateZeroAmountNoCredit(t *testing.T) {
 	inviteeID := createRebateUser(t, db, "zero-invitee", inviterID)
 
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return CreditRebate(tx, inviteeID, 0, "充值", "tn-zero")
+		_, err := CreditRebate(tx, inviteeID, 0, "充值", "tn-zero")
+		return err
 	}))
 
 	var inviter, invitee User
@@ -97,7 +99,8 @@ func TestCreditRebateSelfInviteNoCredit(t *testing.T) {
 	require.NoError(t, db.Model(&User{}).Where("id = ?", uid).Update("inviter_id", uid).Error)
 
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return CreditRebate(tx, uid, 1_000_000, "充值", "tn-self")
+		_, err := CreditRebate(tx, uid, 1_000_000, "充值", "tn-self")
+		return err
 	}))
 
 	var u User
@@ -114,7 +117,8 @@ func TestCreditRebateAffQuotaTarget(t *testing.T) {
 
 	const source = int64(1_000_000)
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return CreditRebate(tx, inviteeID, source, "充值", "tn-aff")
+		_, err := CreditRebate(tx, inviteeID, source, "充值", "tn-aff")
+		return err
 	}))
 
 	var inviter, invitee User
@@ -135,7 +139,8 @@ func TestCreditRebateQuotaTarget(t *testing.T) {
 
 	const source = int64(1_000_000)
 	require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-		return CreditRebate(tx, inviteeID, source, "充值", "tn-quota")
+		_, err := CreditRebate(tx, inviteeID, source, "充值", "tn-quota")
+		return err
 	}))
 
 	var inviter, invitee User
@@ -195,6 +200,6 @@ func TestCreditRebateSurfacesDBError(t *testing.T) {
 	require.NoError(t, raw.Close())
 
 	tx := db.Begin()
-	err = CreditRebate(tx, inviteeID, 1_000_000, "test", "tn-db-err")
+	_, err = CreditRebate(tx, inviteeID, 1_000_000, "test", "tn-db-err")
 	require.Error(t, err)
 }

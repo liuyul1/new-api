@@ -579,6 +579,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	var logMoney float64
 	var logPaymentMethod string
 	var upgradeGroup string
+	var rebateLogs []RebateLog
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var order SubscriptionOrder
 		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(&order).Error; err != nil {
@@ -627,8 +628,10 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPaymentMethod = order.PaymentMethod
 		// Credit rebate inside the same transaction as the status flip + subscription creation,
 		// so it is atomic and a duplicate/idempotent callback cannot double-credit.
-		if err := CreditRebate(tx, order.UserId, int64(order.Money*common.QuotaPerUnit), "订阅", order.TradeNo); err != nil {
-			return err
+		var rerr error
+		rebateLogs, rerr = CreditRebate(tx, order.UserId, int64(order.Money*common.QuotaPerUnit), "订阅", order.TradeNo)
+		if rerr != nil {
+			return rerr
 		}
 		return nil
 	})
@@ -641,6 +644,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
+		recordRebateLogs(rebateLogs)
 	}
 	return nil
 }
