@@ -614,6 +614,9 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 //
 // On any error it returns the error so the caller rolls the whole transaction back (all-or-nothing), rather than
 // leaving a user with credit but no rebate. The unused-looking `tradeNo` is surfaced in that error for tracing.
+//
+// NOTE: RecordLog must NOT be called inside the transaction (SQLite deadlock on shared connection).
+// Rebate events are traceable via aff_quota/aff_history changes and the main topup log entry.
 func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceType string, tradeNo string) error {
 	if sourceAmount <= 0 {
 		return nil
@@ -639,10 +642,6 @@ func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceTyp
 			if err := creditRebateToUser(dbtx, inviterId, rebateAmount); err != nil {
 				return fmt.Errorf("邀请返现写入失败 inviter_id=%d source_user_id=%d source_type=%s trade_no=%s: %w", inviterId, sourceUserId, sourceType, tradeNo, err)
 			}
-			RecordLog(inviterId, LogTypeTopup, fmt.Sprintf("邀请返现: 被邀请人 %d %s %v, 返现 %v (%.0f%%)",
-				sourceUserId, sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
-			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("邀请人 %d 获得返利 %v (%.0f%%)",
-				inviterId, logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
 		}
 	}
 
@@ -653,8 +652,6 @@ func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceTyp
 			if err := creditRebateToUser(dbtx, sourceUserId, rebateAmount); err != nil {
 				return fmt.Errorf("被邀请人返现失败 user_id=%d source_type=%s trade_no=%s: %w", sourceUserId, sourceType, tradeNo, err)
 			}
-			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("被邀请人返现: %s %v, 返利 %v (%.0f%%)",
-				sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviteePercent*100))
 		}
 	}
 
