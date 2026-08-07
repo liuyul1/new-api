@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -537,10 +538,22 @@ func updateOptionMap(key string, value string) (err error) {
 	case "QuotaForInvitee":
 		common.QuotaForInvitee, _ = strconv.Atoi(value)
 	case "TopupRebateInviterPercent":
-		common.TopupRebateInviterPercent, _ = strconv.ParseFloat(value, 64)
+		if p, err := strconv.ParseFloat(value, 64); err == nil && p >= 0 && p <= 1 {
+			common.TopupRebateInviterPercent = p
+		} else {
+			common.SysError(fmt.Sprintf("invalid TopupRebateInviterPercent: %q", value))
+		}
 	case "TopupRebateInviteePercent":
-		common.TopupRebateInviteePercent, _ = strconv.ParseFloat(value, 64)
+		if p, err := strconv.ParseFloat(value, 64); err == nil && p >= 0 && p <= 1 {
+			common.TopupRebateInviteePercent = p
+		} else {
+			common.SysError(fmt.Sprintf("invalid TopupRebateInviteePercent: %q", value))
+		}
 	case "TopupRebateTarget":
+		if value != "aff_quota" && value != "quota" {
+			common.SysError(fmt.Sprintf("invalid TopupRebateTarget: %q", value))
+			break
+		}
 		common.TopupRebateTarget = value
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)

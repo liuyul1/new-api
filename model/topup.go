@@ -146,6 +146,10 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 			return err
 		}
 
+		if err := CreditRebate(tx, topUp.UserId, int64(quota), "充值", topUp.TradeNo); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -155,8 +159,6 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 	}
 
 	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount), callerIp, topUp.PaymentMethod, PaymentMethodStripe)
-
-	CreditRebate(topUp.UserId, int64(quota), "充值", topUp.TradeNo)
 
 	return nil
 }
@@ -453,6 +455,10 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			return err
 		}
 
+		if err := CreditRebate(tx, topUp.UserId, int64(quota), "充值", topUp.TradeNo); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -462,8 +468,6 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 	}
 
 	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodCreem)
-
-	CreditRebate(topUp.UserId, int64(quota), "充值", topUp.TradeNo)
 
 	return nil
 }
@@ -516,6 +520,10 @@ func RechargeWaffo(tradeNo string, callerIp string) (err error) {
 			return err
 		}
 
+		if err := CreditRebate(tx, topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -526,7 +534,6 @@ func RechargeWaffo(tradeNo string, callerIp string) (err error) {
 
 	if quotaToAdd > 0 {
 		RecordTopupLog(topUp.UserId, fmt.Sprintf("Waffo充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodWaffo)
-		CreditRebate(topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo)
 	}
 
 	return nil
@@ -578,6 +585,10 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 			return err
 		}
 
+		if err := CreditRebate(tx, topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo); err != nil {
+			return err
+		}
+
 		return nil
 	})
 
@@ -588,33 +599,49 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 
 	if quotaToAdd > 0 {
 		RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("Waffo Pancake充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money))
-		CreditRebate(topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo)
 	}
 
 	return nil
 }
 
 // CreditRebate credits rebate to inviter (and optionally invitee) after a successful topup or subscription.
-func CreditRebate(sourceUserId int, sourceAmount int64, sourceType string, tradeNo string) {
+//
+// It MUST be called with the SAME *gorm.DB transaction (`dbtx`) that credits the source user's quota and flips the
+// order status, so the rebate commits or rolls back atomically with the payment. This removes the crash window
+// where quota lands but the rebate is silently lost, and — because the caller flips Pending→Success in that same
+// transaction — a concurrent/duplicate callback is serialized and cannot double-credit the rebate (the status guard
+// and lock in the caller's transaction are the durability point; no separate per-trade marker is needed).
+//
+// On any error it returns the error so the caller rolls the whole transaction back (all-or-nothing), rather than
+// leaving a user with credit but no rebate. The unused-looking `tradeNo` is surfaced in that error for tracing.
+func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceType string, tradeNo string) error {
 	if sourceAmount <= 0 {
-		return
+		return nil
 	}
 
 	// Look up inviter
 	var user User
-	if err := DB.Select("inviter_id").Where("id = ?", sourceUserId).First(&user).Error; err != nil || user.InviterId == 0 {
-		return // no inviter
+	if err := dbtx.Select("inviter_id").Where("id = ?", sourceUserId).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil // no such record, hence no inviter
+		}
+		return fmt.Errorf("查询邀请人失败 source_user_id=%d source_type=%s trade_no=%s: %w", sourceUserId, sourceType, tradeNo, err)
 	}
 	inviterId := user.InviterId
+	if inviterId == 0 || inviterId == sourceUserId {
+		return nil // 无邀请人；自邀不返，防止自邀请环
+	}
 
 	// Inviter rebate
 	if common.TopupRebateInviterPercent > 0 {
 		rebateAmount := int64(float64(sourceAmount) * common.TopupRebateInviterPercent)
 		if rebateAmount > 0 {
-			creditRebateToUser(inviterId, rebateAmount)
+			if err := creditRebateToUser(dbtx, inviterId, rebateAmount); err != nil {
+				return fmt.Errorf("邀请返现写入失败 inviter_id=%d source_user_id=%d source_type=%s trade_no=%s: %w", inviterId, sourceUserId, sourceType, tradeNo, err)
+			}
 			RecordLog(inviterId, LogTypeTopup, fmt.Sprintf("邀请返现: 被邀请人 %d %s %v, 返现 %v (%.0f%%)",
 				sourceUserId, sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
-			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("邀请人 %d 获得返现 %v (%.0f%%)",
+			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("邀请人 %d 获得返利 %v (%.0f%%)",
 				inviterId, logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
 		}
 	}
@@ -623,20 +650,28 @@ func CreditRebate(sourceUserId int, sourceAmount int64, sourceType string, trade
 	if common.TopupRebateInviteePercent > 0 {
 		rebateAmount := int64(float64(sourceAmount) * common.TopupRebateInviteePercent)
 		if rebateAmount > 0 {
-			creditRebateToUser(sourceUserId, rebateAmount)
-			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("被邀请人返现: %s %v, 返现 %v (%.0f%%)",
+			if err := creditRebateToUser(dbtx, sourceUserId, rebateAmount); err != nil {
+				return fmt.Errorf("被邀请人返现失败 user_id=%d source_type=%s trade_no=%s: %w", sourceUserId, sourceType, tradeNo, err)
+			}
+			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("被邀请人返现: %s %v, 返利 %v (%.0f%%)",
 				sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviteePercent*100))
 		}
 	}
+
+	return nil
 }
 
-func creditRebateToUser(userId int, amount int64) {
-	if common.TopupRebateTarget == "aff_quota" {
-		DB.Model(&User{}).Where("id = ?", userId).Updates(map[string]interface{}{
-			"aff_quota":   gorm.Expr("aff_quota + ?", amount),
-			"aff_history": gorm.Expr("aff_history + ?", amount),
-		})
-	} else {
-		IncreaseUserQuota(userId, int(amount), false)
+// creditRebateToUser applies the rebate inside the caller's transaction (`dbtx`), atomically with the topup credit
+// and the status flip. Both target types are written synchronously through the transaction — unlike
+// IncreaseUserQuota (which is async/batched for the cache) — so the rebate is durable and consistent with the
+// in-transaction quota accounting. P2-4.
+func creditRebateToUser(dbtx *gorm.DB, userId int, amount int64) error {
+	if common.TopupRebateTarget == "quota" {
+		return dbtx.Model(&User{}).Where("id = ?", userId).
+			Update("quota", gorm.Expr("quota + ?", amount)).Error
 	}
+	return dbtx.Model(&User{}).Where("id = ?", userId).Updates(map[string]interface{}{
+		"aff_quota":   gorm.Expr("aff_quota + ?", amount),
+		"aff_history": gorm.Expr("aff_history + ?", amount),
+	}).Error
 }

@@ -625,6 +625,11 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		logPlanTitle = plan.Title
 		logMoney = order.Money
 		logPaymentMethod = order.PaymentMethod
+		// Credit rebate inside the same transaction as the status flip + subscription creation,
+		// so it is atomic and a duplicate/idempotent callback cannot double-credit.
+		if err := CreditRebate(tx, order.UserId, int64(order.Money*common.QuotaPerUnit), "订阅", order.TradeNo); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
@@ -636,9 +641,6 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 	if logUserId > 0 {
 		msg := fmt.Sprintf("订阅购买成功，套餐: %s，支付金额: %.2f，支付方式: %s", logPlanTitle, logMoney, logPaymentMethod)
 		RecordLog(logUserId, LogTypeTopup, msg)
-		// Credit rebate based on subscription money (convert to quota units)
-		rebateBase := int64(logMoney * common.QuotaPerUnit)
-		CreditRebate(logUserId, rebateBase, "订阅", tradeNo)
 	}
 	return nil
 }
