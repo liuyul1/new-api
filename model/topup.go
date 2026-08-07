@@ -156,6 +156,8 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 
 	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount), callerIp, topUp.PaymentMethod, PaymentMethodStripe)
 
+	CreditRebate(topUp.UserId, int64(quota), "充值", topUp.TradeNo)
+
 	return nil
 }
 
@@ -461,6 +463,8 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 
 	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodCreem)
 
+	CreditRebate(topUp.UserId, int64(quota), "充值", topUp.TradeNo)
+
 	return nil
 }
 
@@ -522,6 +526,7 @@ func RechargeWaffo(tradeNo string, callerIp string) (err error) {
 
 	if quotaToAdd > 0 {
 		RecordTopupLog(topUp.UserId, fmt.Sprintf("Waffo充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodWaffo)
+		CreditRebate(topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo)
 	}
 
 	return nil
@@ -583,7 +588,55 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 
 	if quotaToAdd > 0 {
 		RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("Waffo Pancake充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money))
+		CreditRebate(topUp.UserId, int64(quotaToAdd), "充值", topUp.TradeNo)
 	}
 
 	return nil
+}
+
+// CreditRebate credits rebate to inviter (and optionally invitee) after a successful topup or subscription.
+func CreditRebate(sourceUserId int, sourceAmount int64, sourceType string, tradeNo string) {
+	if sourceAmount <= 0 {
+		return
+	}
+
+	// Look up inviter
+	var user User
+	if err := DB.Select("inviter_id").Where("id = ?", sourceUserId).First(&user).Error; err != nil || user.InviterId == 0 {
+		return // no inviter
+	}
+	inviterId := user.InviterId
+
+	// Inviter rebate
+	if common.TopupRebateInviterPercent > 0 {
+		rebateAmount := int64(float64(sourceAmount) * common.TopupRebateInviterPercent)
+		if rebateAmount > 0 {
+			creditRebateToUser(inviterId, rebateAmount)
+			RecordLog(inviterId, LogTypeTopup, fmt.Sprintf("邀请返现: 被邀请人 %d %s %v, 返现 %v (%.0f%%)",
+				sourceUserId, sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
+			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("邀请人 %d 获得返现 %v (%.0f%%)",
+				inviterId, logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviterPercent*100))
+		}
+	}
+
+	// Invitee self-rebate
+	if common.TopupRebateInviteePercent > 0 {
+		rebateAmount := int64(float64(sourceAmount) * common.TopupRebateInviteePercent)
+		if rebateAmount > 0 {
+			creditRebateToUser(sourceUserId, rebateAmount)
+			RecordLog(sourceUserId, LogTypeTopup, fmt.Sprintf("被邀请人返现: %s %v, 返现 %v (%.0f%%)",
+				sourceType, logger.FormatQuota(int(sourceAmount)), logger.FormatQuota(int(rebateAmount)), common.TopupRebateInviteePercent*100))
+		}
+	}
+}
+
+func creditRebateToUser(userId int, amount int64) {
+	if common.TopupRebateTarget == "aff_quota" {
+		DB.Model(&User{}).Where("id = ?", userId).Updates(map[string]interface{}{
+			"aff_quota":   gorm.Expr("aff_quota + ?", amount),
+			"aff_history": gorm.Expr("aff_history + ?", amount),
+		})
+	} else {
+		IncreaseUserQuota(userId, int(amount), false)
+	}
 }
