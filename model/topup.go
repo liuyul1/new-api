@@ -645,9 +645,11 @@ func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceTyp
 	if common.TopupRebateLimit > 0 {
 		var rebateCount int64
 		query := dbtx.Model(&TopUp{}).Where("user_id = ? AND status = ?", sourceUserId, common.TopUpStatusSuccess)
-		if common.TopupRebateStartTime > 0 {
-			query = query.Where("create_time >= ?", common.TopupRebateStartTime)
+		startTime := common.TopupRebateStartTime
+		if startTime <= 0 {
+			startTime = common.GetTimestamp() // 默认从当前时刻开始计
 		}
+		query = query.Where("create_time >= ?", startTime)
 		if err := query.Count(&rebateCount).Error; err != nil {
 			return nil, fmt.Errorf("查询充值笔数失败 source_user_id=%d trade_no=%s: %w", sourceUserId, tradeNo, err)
 		}
