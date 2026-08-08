@@ -3664,6 +3664,8 @@
     "Reason:": "原因：",
     "Reasoning": "推理",
     "Reasoning Effort": "推理强度",
+    "Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)": "返现仅在被邀请人的前 N 笔成功充值/订阅内生效（0 = 不限制）",
+    "Rebate Order Limit": "返利笔数上限",
     "Rebate Target": "返现到账账户",
     "Receive Upstream Model Update Notifications": "接收上游模型更新通知",
     "Received": "获得",

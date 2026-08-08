@@ -3664,6 +3664,8 @@
     "Reason:": "Причина:",
     "Reasoning": "Обоснование",
     "Reasoning Effort": "Интенсивность рассуждения",
+    "Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)": "Вознаграждение действует только для первых N успешных пополнений/подписок приглашённого (0 = без ограничений)",
+    "Rebate Order Limit": "Лимит вознаграждений",
     "Rebate Target": "Счёт начисления вознаграждения",
     "Receive Upstream Model Update Notifications": "Получать уведомления об обновлениях вышестоящих моделей",
     "Received": "Получено",

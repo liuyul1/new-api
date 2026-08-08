@@ -65,6 +65,7 @@ const quotaSchema = z.object({
   TopupRebateInviterPercent: z.coerce.number().min(0).max(1),
   TopupRebateInviteePercent: z.coerce.number().min(0).max(1),
   TopupRebateTarget: z.enum(['aff_quota', 'quota']),
+  TopupRebateLimit: z.coerce.number().int().min(0),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -327,6 +328,32 @@ export function QuotaSettingsSection({
                   </Select>
                   <FormDescription>
                     {t('Where rebate is credited: aff_quota requires manual transfer, quota is instantly usable')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='TopupRebateLimit'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Rebate Order Limit')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      step='1'
+                      min='0'
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

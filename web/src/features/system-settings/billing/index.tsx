@@ -32,6 +32,7 @@ const defaultBillingSettings: BillingSettings = {
   TopupRebateInviterPercent: 0.1,
   TopupRebateInviteePercent: 0.05,
   TopupRebateTarget: 'aff_quota',
+  TopupRebateLimit: 0,
   TopUpLink: '',
   'general_setting.docs_link': '',
   'quota_setting.enable_free_model_pre_consume': true,

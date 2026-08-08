@@ -31,6 +31,7 @@ func useRebateTestDB(t *testing.T) *gorm.DB {
 		common.TopupRebateInviterPercent = 0.10
 		common.TopupRebateInviteePercent = 0.05
 		common.TopupRebateTarget = "aff_quota"
+		common.TopupRebateLimit = 0
 		common.QuotaPerUnit = 500 * 1000.0
 		_ = sqlDB.Close()
 	})
@@ -202,4 +203,47 @@ func TestCreditRebateSurfacesDBError(t *testing.T) {
 	tx := db.Begin()
 	_, err = CreditRebate(tx, inviteeID, 1_000_000, "test", "tn-db-err")
 	require.Error(t, err)
+}
+
+func TestCreditRebateLimitStopsAfterNTimes(t *testing.T) {
+	db := useRebateTestDB(t)
+	setRebateOptions(t, 0.10, 0.05, "aff_quota")
+	common.TopupRebateLimit = 1
+	inviterID := createRebateUser(t, db, "limit-inviter", 0)
+	inviteeID := createRebateUser(t, db, "limit-invitee", inviterID)
+
+	rebate := func(tradeNo string) {
+		t.Helper()
+		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+			_, err := CreditRebate(tx, inviteeID, 1_000_000, "充值", tradeNo)
+			return err
+		}))
+	}
+
+	// 模拟订单已入账（成功状态），CreditRebate 按成功订单笔数计数。
+	succeed := func(tradeNo string) {
+		t.Helper()
+		require.NoError(t, db.Create(&TopUp{
+			UserId:      inviteeID,
+			Amount:      1,
+			Money:       0.002,
+			TradeNo:     tradeNo,
+			CreateTime:  common.GetTimestamp(),
+			Status:      common.TopUpStatusSuccess,
+		}).Error)
+	}
+
+	// 第 1 笔：订单已成功，应返利。
+	succeed("limit-tn-1")
+	rebate("limit-tn-1")
+
+	// 第 2 笔：此时成功笔数=2 > 上限 1，应停止返利。
+	succeed("limit-tn-2")
+	rebate("limit-tn-2")
+
+	var inviter, invitee User
+	require.NoError(t, db.First(&inviter, inviterID).Error)
+	require.NoError(t, db.First(&invitee, inviteeID).Error)
+	assert.Equal(t, int64(100_000), int64(inviter.AffQuota), "仅第 1 笔返利给邀请人")
+	assert.Equal(t, int64(50_000), int64(invitee.AffQuota), "仅第 1 笔返利给被邀请人")
 }

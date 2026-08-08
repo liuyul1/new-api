@@ -641,6 +641,17 @@ func CreditRebate(dbtx *gorm.DB, sourceUserId int, sourceAmount int64, sourceTyp
 		return nil, nil
 	}
 
+	// 返利次数上限：仅在被推荐用户的前 N 笔成功充值/订阅内生效（0 = 不限制）。
+	if common.TopupRebateLimit > 0 {
+		var rebateCount int64
+		if err := dbtx.Model(&TopUp{}).Where("user_id = ? AND status = ?", sourceUserId, common.TopUpStatusSuccess).Count(&rebateCount).Error; err != nil {
+			return nil, fmt.Errorf("查询充值笔数失败 source_user_id=%d trade_no=%s: %w", sourceUserId, tradeNo, err)
+		}
+		if rebateCount > int64(common.TopupRebateLimit) {
+			return nil, nil // 已超过返利笔数上限，本笔不再返
+		}
+	}
+
 	// Look up inviter
 	var user User
 	if err := dbtx.Select("inviter_id").Where("id = ?", sourceUserId).First(&user).Error; err != nil {

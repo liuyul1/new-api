@@ -3664,6 +3664,8 @@
     "Reason:": "Raison :",
     "Reasoning": "Raisonnement",
     "Reasoning Effort": "Effort de raisonnement",
+    "Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)": "La remise ne s'applique qu'aux N premiers rechargements/abonnements réussis de l'invité (0 = illimité)",
+    "Rebate Order Limit": "Limite du nombre de remises",
     "Rebate Target": "Destination de la remise",
     "Receive Upstream Model Update Notifications": "Recevoir les notifications de mise à jour des modèles en amont",
     "Received": "Reçu",

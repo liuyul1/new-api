@@ -3664,6 +3664,8 @@
     "Reason:": "理由：",
     "Reasoning": "理由",
     "Reasoning Effort": "推論強度",
+    "Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)": "還元は招待されたユーザーの先頭 N 回のチャージ/サブスクリプションにのみ適用されます（0 = 無制限）",
+    "Rebate Order Limit": "還元回数上限",
     "Rebate Target": "還元の入金先",
     "Receive Upstream Model Update Notifications": "アップストリームモデル更新通知を受け取る",
     "Received": "受信済み",
