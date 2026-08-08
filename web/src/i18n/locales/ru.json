@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "Цена за единицу (USD)",
     "Unit price must be greater than 0": "Цена за единицу должна быть больше 0",
     "Units per USD": "Единиц за USD",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Unix-метка времени. В лимит вознаграждений считаются только заказы, созданные после этого момента (0 = учитывать все). Чтобы исключить старые заказы, установите текущее время при включении функции.",
     "Unknown": "Неизвестно",
     "Unknown device": "Неизвестное устройство",
     "Unknown version": "Неизвестная версия",

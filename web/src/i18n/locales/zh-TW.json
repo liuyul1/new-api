@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "單價 (USD)",
     "Unit price must be greater than 0": "單價必須大於 0",
     "Units per USD": "每 USD 單位數",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Unix 時間戳。僅統計建立時間晚於該時刻的訂單計入返利筆數（0 = 全部計入）。如需排除舊訂單，啟用返利時將此項設為當前時間。",
     "Unknown": "未知",
     "Unknown device": "未知裝置",
     "Unknown version": "未知版本",

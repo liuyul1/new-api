@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "Prix unitaire (USD)",
     "Unit price must be greater than 0": "Le prix unitaire doit être supérieur à 0",
     "Units per USD": "Unités par USD",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Horodatage Unix. Seules les commandes créées après ce moment comptent dans la limite (0 = tout compter). Pour exclure les anciennes commandes, définissez l'heure actuelle lors de l'activation.",
     "Unknown": "Inconnu",
     "Unknown device": "Appareil inconnu",
     "Unknown version": "Version inconnue",

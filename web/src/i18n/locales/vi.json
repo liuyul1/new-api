@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "Đơn giá (USD)",
     "Unit price must be greater than 0": "Đơn giá phải lớn hơn 0",
     "Units per USD": "Đơn vị trên USD",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Mốc thời gian Unix. Chỉ các đơn hàng tạo sau thời điểm này mới được tính vào giới hạn hoàn tiền (0 = tính tất cả). Đặt thời gian hiện tại khi bật tính năng để loại trừ đơn cũ.",
     "Unknown": "Không rõ",
     "Unknown device": "Thiết bị không xác định",
     "Unknown version": "Phiên bản không xác định",

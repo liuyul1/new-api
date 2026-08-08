@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "Unit price (USD)",
     "Unit price must be greater than 0": "Unit price must be greater than 0",
     "Units per USD": "Units per USD",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.",
     "Unknown": "Unknown",
     "Unknown device": "Unknown device",
     "Unknown version": "Unknown version",

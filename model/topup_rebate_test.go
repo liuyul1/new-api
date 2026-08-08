@@ -32,6 +32,7 @@ func useRebateTestDB(t *testing.T) *gorm.DB {
 		common.TopupRebateInviteePercent = 0.05
 		common.TopupRebateTarget = "aff_quota"
 		common.TopupRebateLimit = 0
+		common.TopupRebateStartTime = 0
 		common.QuotaPerUnit = 500 * 1000.0
 		_ = sqlDB.Close()
 	})
@@ -246,4 +247,51 @@ func TestCreditRebateLimitStopsAfterNTimes(t *testing.T) {
 	require.NoError(t, db.First(&invitee, inviteeID).Error)
 	assert.Equal(t, int64(100_000), int64(inviter.AffQuota), "仅第 1 笔返利给邀请人")
 	assert.Equal(t, int64(50_000), int64(invitee.AffQuota), "仅第 1 笔返利给被邀请人")
+}
+
+func TestCreditRebateStartTimeExcludesOldOrders(t *testing.T) {
+	db := useRebateTestDB(t)
+	setRebateOptions(t, 0.10, 0.05, "aff_quota")
+	common.TopupRebateLimit = 1
+	startTime := common.GetTimestamp()
+	common.TopupRebateStartTime = startTime
+	inviterID := createRebateUser(t, db, "st-inviter", 0)
+	inviteeID := createRebateUser(t, db, "st-invitee", inviterID)
+
+	rebate := func(tradeNo string) {
+		t.Helper()
+		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
+			_, err := CreditRebate(tx, inviteeID, 1_000_000, "充值", tradeNo)
+			return err
+		}))
+	}
+	succeed := func(tradeNo string, createTime int64) {
+		t.Helper()
+		require.NoError(t, db.Create(&TopUp{
+			UserId:      inviteeID,
+			Amount:      1,
+			Money:       0.002,
+			TradeNo:     tradeNo,
+			CreateTime:  createTime,
+			Status:      common.TopUpStatusSuccess,
+		}).Error)
+	}
+
+	// 上线前的旧订单不参与计数。
+	succeed("st-old", startTime-100)
+	rebate("st-old")
+
+	// 上线后的第 1 笔订单：计入第 1 笔，返利。
+	succeed("st-new-1", startTime)
+	rebate("st-new-1")
+
+	// 上线后的第 2 笔订单：超过上限 1，不返。
+	succeed("st-new-2", startTime+1)
+	rebate("st-new-2")
+
+	var inviter, invitee User
+	require.NoError(t, db.First(&inviter, inviterID).Error)
+	require.NoError(t, db.First(&invitee, inviteeID).Error)
+	assert.Equal(t, int64(100_000), int64(inviter.AffQuota), "旧订单不计数，新订单仍给满 1 笔返利")
+	assert.Equal(t, int64(50_000), int64(invitee.AffQuota))
 }

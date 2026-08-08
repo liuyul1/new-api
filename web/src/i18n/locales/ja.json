@@ -4833,6 +4833,7 @@
     "Unit price (USD)": "単価 (USD)",
     "Unit price must be greater than 0": "単価は 0 より大きい必要があります",
     "Units per USD": "USDあたりのユニット数",
+    "Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.": "Unix タイムスタンプ。この時刻より後に作成された注文のみが還元回数にカウントされます（0 = すべてカウント）。過去の注文を除外するには、機能を有効化する際に現在時刻を設定します。",
     "Unknown": "不明",
     "Unknown device": "不明なデバイス",
     "Unknown version": "不明なバージョン",
