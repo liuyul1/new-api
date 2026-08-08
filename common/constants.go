@@ -128,6 +128,7 @@ var TopupRebateInviterPercent = 0.10
 var TopupRebateInviteePercent = 0.05
 var TopupRebateTarget = "aff_quota" // "aff_quota" or "quota"
 var TopupRebateLimit = 0 // 0 表示不限制：邀请返现仅在推荐用户的前 N 笔成功充值/订阅内生效
+var TopupRebateStartTime int64 = 0 // Unix timestamp, 0=不限制：只计该时间之后的订单
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

@@ -66,6 +66,7 @@ const quotaSchema = z.object({
   TopupRebateInviteePercent: z.coerce.number().min(0).max(1),
   TopupRebateTarget: z.enum(['aff_quota', 'quota']),
   TopupRebateLimit: z.coerce.number().int().min(0),
+  TopupRebateStartTime: z.coerce.number().int().min(0),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -354,6 +355,32 @@ export function QuotaSettingsSection({
                   </FormControl>
                   <FormDescription>
                     {t('Rebate applies only to the first N successful topups/subscriptions of an invited user (0 = unlimited)')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='TopupRebateStartTime'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Rebate Start Time')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      step='1'
+                      min='0'
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Unix timestamp. Only orders created after this time are counted for rebate limit (0 = count all). Set to current time when enabling rebate to exclude old orders.')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

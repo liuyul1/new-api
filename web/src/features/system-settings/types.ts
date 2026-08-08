@@ -255,6 +255,7 @@ export type BillingSettings = {
   TopupRebateInviteePercent: number
   TopupRebateTarget: string
   TopupRebateLimit: number
+  TopupRebateStartTime: number
   TopUpLink: string
   'general_setting.docs_link': string
   'quota_setting.enable_free_model_pre_consume': boolean

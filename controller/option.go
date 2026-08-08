@@ -374,6 +374,16 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "返现目标必须是 aff_quota 或 quota"})
 			return
 		}
+	case "TopupRebateLimit":
+		if v, err := strconv.Atoi(option.Value.(string)); err != nil || v < 0 {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "返利笔数上限必须 >= 0"})
+			return
+		}
+	case "TopupRebateStartTime":
+		if v, err := strconv.ParseInt(option.Value.(string), 10, 64); err != nil || v < 0 {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "返利起始时间必须 >= 0"})
+			return
+		}
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
